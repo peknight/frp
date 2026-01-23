@@ -8,10 +8,19 @@ lazy val frp = (project in file("."))
   .aggregate(
     frpCore.jvm,
     frpCore.js,
+    frpCustom.jvm,
+    frpCustom.js,
   )
 
 lazy val frpCore = (crossProject(JVMPlatform, JSPlatform) in file("frp-core"))
   .settings(name := "frp-core")
   .settings(crossDependencies(
     peknight.app,
+  ))
+
+lazy val frpCustom = (crossProject(JVMPlatform, JSPlatform) in file("frp-custom"))
+  .dependsOn(frpCore)
+  .settings(name := "frp-custom")
+  .settings(crossDependencies(
+    peknight.app.build,
   ))
