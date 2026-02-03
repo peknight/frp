@@ -23,4 +23,6 @@ lazy val frpCustom = (crossProject(JVMPlatform, JSPlatform) in file("frp-custom"
   .settings(name := "frp-custom")
   .settings(crossDependencies(
     peknight.app.build,
+    peknight.http.client,
+    peknight.fs2.tar,
   ))
