@@ -15,7 +15,9 @@ lazy val frp = (project in file("."))
 lazy val frpCore = (crossProject(JVMPlatform, JSPlatform) in file("frp-core"))
   .settings(name := "frp-core")
   .settings(crossDependencies(
+    peknight.auth,
     peknight.app,
+    comcast.ip4s,
   ))
 
 lazy val frpCustom = (crossProject(JVMPlatform, JSPlatform) in file("frp-custom"))

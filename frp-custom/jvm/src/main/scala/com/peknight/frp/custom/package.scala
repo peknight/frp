@@ -36,7 +36,6 @@ import org.typelevel.log4cats.Logger
 
 package object custom:
   private val fileName: Path = Path("frp.tar.gz")
-  private def appHomePath(command: Command, directory: Path): Path = directory / opt / frpAppName.value / command.directory
   private val containerConfDirectory: Path = Root / etc / frpAppName.value
 
   def download[F[_]](uri: Uri = url, fileName: Option[Path] = fileName.some, directory: Option[Path] = None)
@@ -73,6 +72,8 @@ package object custom:
        |ENTRYPOINT ["./$command", "-c", "$containerConfDirectory/$command.toml"]
     """.stripMargin
 
+  private def appHomePath(command: Command, directory: Path): Path = directory / opt / frpAppName.value / command.directory
+
   def runFrp[F[_]](command: Command, toml: => String, publish: List[PortMapping] = Nil)(using Client[F])
                   (using Async[F], Files[F], Compression[F], Processes[F], Logger[F], Console[F])
   : IorT[F, Error, Boolean] =
@@ -96,6 +97,5 @@ package object custom:
         false.rLiftIT
       )
     yield
-      true
-
+      res
 end custom
