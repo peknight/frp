@@ -74,18 +74,17 @@ package object custom:
 
   private def appHomePath(command: Command, directory: Path): Path = directory / opt / frpAppName.value / command.directory
 
-  def runFrp[F[_]](command: Command, toml: => String, publish: List[PortMapping] = Nil)(using Client[F])
+  def runFrp[F[_]](home: Path, command: Command, toml: => String, publish: List[PortMapping] = Nil)(using Client[F])
                   (using Async[F], Files[F], Compression[F], Processes[F], Logger[F], Console[F])
   : IorT[F, Error, Boolean] =
     type G[X] = IorT[F, Error, X]
     val appName: AppName = AppName(s"${frpAppName.value}-${command.directory}")
     val image: ImageRepositoryTag = customImage(appName, tag = Tag(version).some)
+    val appHome: Path = appHomePath(command, home)
+    val context: Path = appHome / docker
+    val configDirectory: Path = appHome / conf
+    val configTomlPath: Path = configDirectory / s"$command.toml"
     for
-      home <- Files[F].userHome.asIT
-      appHome = appHomePath(command, home)
-      context = appHome / docker
-      configDirectory = appHome / conf
-      configTomlPath = configDirectory / s"$command.toml"
       _ <- download[F](url, fileName.some, context.some).asIT
       _ <- configTomlPath.writeFileIfNotExists(Stream(toml).covary[F].through(utf8.encode[F])).asIT
       res <- Monad[G].ifM[Boolean](buildImageIfNotExists[F](image, dockerfile(command), context)())(
