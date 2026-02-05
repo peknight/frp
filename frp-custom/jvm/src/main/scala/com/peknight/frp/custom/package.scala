@@ -80,7 +80,7 @@ package object custom:
     type G[X] = IorT[F, Error, X]
     val appName: AppName = AppName(s"${frpAppName.value}-${command.directory}")
     val image: ImageRepositoryTag = customImage(appName, tag = Tag(version).some)
-    val appHome: Path = appHomePath(command, home)
+    val appHome: Path = appHomePath(command, home / `.local`)
     val context: Path = appHome / docker
     val configDirectory: Path = appHome / conf
     val configTomlPath: Path = configDirectory / s"$command.toml"
