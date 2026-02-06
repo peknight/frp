@@ -8,6 +8,7 @@ import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.{ApplicativeError, Monad}
+import com.comcast.ip4s.IpAddress
 import com.peknight.app.AppName
 import com.peknight.app.build.fatedier.frp.{url, version}
 import com.peknight.cats.syntax.iorT.rLiftIT
@@ -74,7 +75,8 @@ package object custom:
 
   private def appHomePath(command: Command, directory: Path): Path = directory / opt / frpAppName.value / command.directory
 
-  def runFrp[F[_]](home: Path, command: Command, toml: => String, publish: List[PortMapping] = Nil)(using Client[F])
+  def runFrp[F[_]](home: Path, command: Command, toml: => String, ip: Option[IpAddress] = None,
+                   publish: List[PortMapping] = Nil)(using Client[F])
                   (using Async[F], Files[F], Compression[F], Processes[F], Logger[F], Console[F])
   : IorT[F, Error, Boolean] =
     type G[X] = IorT[F, Error, X]
@@ -89,6 +91,7 @@ package object custom:
       _ <- configTomlPath.writeFileIfNotExists(Stream(toml).covary[F].through(utf8.encode[F])).asIT
       res <- Monad[G].ifM[Boolean](buildImageIfNotExists[F](image, dockerfile(command), context)())(
         runNetworkApp[F](appName, image)(RunOptions(
+          ip = ip,
           publish = publish,
           restart = RestartPolicy.`unless-stopped`.some,
           volume = List(VolumeMount(configDirectory, containerConfDirectory))
