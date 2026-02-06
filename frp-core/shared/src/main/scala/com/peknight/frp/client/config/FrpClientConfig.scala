@@ -1,7 +1,7 @@
 package com.peknight.frp.client.config
 
 import com.comcast.ip4s.{Host, Port}
-import com.peknight.auth.token.Token.Token
+import com.peknight.auth.Token
 
 case class FrpClientConfig(serverAddr: Option[Host] = None,
                            serverPort: Option[Port] = None,
