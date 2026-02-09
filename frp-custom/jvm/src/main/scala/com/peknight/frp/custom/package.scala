@@ -23,14 +23,12 @@ import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asIT
 import com.peknight.frp.appName as frpAppName
 import com.peknight.fs2.io.file.path.*
-import com.peknight.fs2.io.syntax.path.{createParentDirectories, writeFileIfNotExists}
+import com.peknight.fs2.io.syntax.path.{createParentDirectories, writeStringIfNotExists}
 import com.peknight.fs2.tar.{TarArchiveEntry, archive, unarchive}
 import com.peknight.http.client.{bodyWithRedirects, path, showProgressInConsole}
-import fs2.Stream
 import fs2.compression.Compression
 import fs2.io.file.{Files, Path}
 import fs2.io.process.Processes
-import fs2.text.utf8
 import org.http4s.client.Client
 import org.http4s.{Request, Uri}
 import org.typelevel.log4cats.Logger
@@ -88,7 +86,7 @@ package object custom:
     val configTomlPath: Path = configDirectory / s"$command.toml"
     for
       _ <- download[F](url, fileName.some, context.some).asIT
-      _ <- configTomlPath.writeFileIfNotExists(Stream(toml).covary[F].through(utf8.encode[F])).asIT
+      _ <- configTomlPath.writeStringIfNotExists(toml).asIT
       res <- Monad[G].ifM[Boolean](buildImageIfNotExists[F](image, dockerfile(command), context)())(
         runNetworkApp[F](appName, image)(RunOptions(
           ip = ip,
