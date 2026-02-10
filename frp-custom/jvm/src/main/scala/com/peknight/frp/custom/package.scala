@@ -18,6 +18,7 @@ import com.peknight.docker.build.library.alpine
 import com.peknight.docker.command.run.{PortMapping, RestartPolicy, RunOptions, VolumeMount}
 import com.peknight.docker.custom.service.{buildImageIfNotExists, runNetworkApp}
 import com.peknight.docker.custom.{maintainer, image as customImage}
+import com.peknight.docker.service.exists
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asIT
@@ -85,7 +86,8 @@ package object custom:
     val configDirectory: Path = appHome / conf
     val configTomlPath: Path = configDirectory / s"$command.toml"
     for
-      _ <- download[F](url, fileName.some, context.some).asIT
+      imageExists <- exists[F](image)
+      _ <- if imageExists then ().rLiftIT else download[F](url, fileName.some, context.some).asIT
       _ <- configTomlPath.writeStringIfNotExists(toml).asIT
       res <- Monad[G].ifM[Boolean](buildImageIfNotExists[F](image, dockerfile(command), context)())(
         runNetworkApp[F](appName, image)(RunOptions(
