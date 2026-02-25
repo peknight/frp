@@ -41,7 +41,7 @@ package object custom:
   def download[F[_]](uri: Uri = url, fileName: Option[Path] = fileName.some, directory: Option[Path] = None)
                     (using Client[F])(using Async[F], Files[F], Compression[F], Console[F]): F[Unit] =
     path(uri, fileName, directory).fold(ApplicativeError[F, Throwable].raiseError(OptionEmpty.label("fileName")))(path =>
-      Monad[F].ifM(Files[F].exists(path))(().pure[F], path.createParentDirectories[F]().flatMap { _ =>
+      path.createParentDirectories[F]().flatMap { _ =>
         val part: Path = Path(s"$path.part")
         bodyWithRedirects[F](Request[F](uri = uri))()(showProgressInConsole[F])
           .through(Compression[F].gunzip())
@@ -57,7 +57,7 @@ package object custom:
           .compile
           .drain
           .flatMap(_ => Files[F].move(part, path))
-      })
+      }
     )
 
   def dockerfile(command: Command): String =
