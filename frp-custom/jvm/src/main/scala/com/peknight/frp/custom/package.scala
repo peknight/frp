@@ -27,6 +27,7 @@ import com.peknight.fs2.io.file.path.*
 import com.peknight.fs2.io.syntax.path.{createParentDirectories, writeStringIfNotExists}
 import com.peknight.fs2.tar.{TarArchiveEntry, archive, unarchive}
 import com.peknight.http.client.{bodyWithRedirects, path, showProgressInConsole}
+import fs2.Stream
 import fs2.compression.Compression
 import fs2.io.file.{Files, Path}
 import fs2.io.process.Processes
@@ -38,13 +39,13 @@ package object custom:
   private val fileName: Path = Path("frp.tar.gz")
   private val containerConfDirectory: Path = Root / etc / frpAppName.value
 
-  def download[F[_]](uri: Uri = url, fileName: Option[Path] = fileName.some, directory: Option[Path] = None)
-                    (using Client[F])(using Async[F], Files[F], Compression[F], Console[F]): F[Unit] =
+  private def process[F[_]](stream: Stream[F, Byte], uri: Uri = url, fileName: Option[Path] = fileName.some,
+                            directory: Option[Path] = None)
+                           (using Client[F])(using Async[F], Files[F], Compression[F], Console[F]): F[Unit] =
     path(uri, fileName, directory).fold(ApplicativeError[F, Throwable].raiseError(OptionEmpty.label("fileName")))(path =>
       path.createParentDirectories[F]().flatMap { _ =>
         val part: Path = Path(s"$path.part")
-        bodyWithRedirects[F](Request[F](uri = uri))()(showProgressInConsole[F])
-          .through(Compression[F].gunzip())
+        stream.through(Compression[F].gunzip())
           .flatMap(gunzipResult => gunzipResult.content.through(unarchive[F]()))
           .evalMapFilter { entry =>
             val nioPath = entry.name.toNioPath
@@ -56,6 +57,7 @@ package object custom:
           .through(Files[F].writeAll(part))
           .compile
           .drain
+          .flatMap(_ => Files[F].deleteIfExists(path))
           .flatMap(_ => Files[F].move(part, path))
       }
     )
@@ -85,9 +87,19 @@ package object custom:
     val context: Path = appHome / docker
     val configDirectory: Path = appHome / conf
     val configTomlPath: Path = configDirectory / s"$command.toml"
+    val packagesDirectory: Path = appHome / packages
     for
+      _ <- Files[F].createDirectories(packagesDirectory).asIT
       imageExists <- exists[F](image)
-      _ <- if imageExists then ().rLiftIT else download[F](url, fileName.some, context.some).asIT
+      _ <-
+        if imageExists then ().rLiftIT
+        else
+          val download: Stream[F, Byte] = bodyWithRedirects[F](Request[F](uri = url))()(showProgressInConsole[F])
+          val stream: Stream[F, Byte] = path(url, directory = packagesDirectory.some).fold(download)(packagePath =>
+            Stream.eval(Monad[F].ifF[Stream[F, Byte]](Files[F].exists(packagePath))(
+              Files[F].readAll(packagePath), download
+            )).flatten)
+          process[F](stream, url, fileName.some, context.some).asIT
       _ <- configTomlPath.writeStringIfNotExists(toml).asIT
       res <- Monad[G].ifM[Boolean](buildImageIfNotExists[F](image, dockerfile(command), context)())(
         runNetworkApp[F](appName, image)(RunOptions(
